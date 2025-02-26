@@ -1,0 +1,4 @@
+gradio==2.3.7
+matplotlib==3.4.3
+numpy==1.21.2
+Pillow==8.3.2

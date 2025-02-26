@@ -1,6 +1,7 @@
 import random
 from utils import total_tour_distance
 
+
 class TSPSolverGA:
     def __init__(self, dist_matrix, population_size=50, generations=200, mutation_rate=0.02):
         self.dist_matrix = dist_matrix
@@ -16,12 +17,11 @@ class TSPSolverGA:
         # Generate initial population
         population = [self._random_tour() for _ in range(self.population_size)]
         best_tour = None
-        best_cost = float('inf')
+        best_cost = float("inf")
 
         for gen in range(self.generations):
             # Evaluate fitness
-            fitness_scores = [1.0 / (total_tour_distance(tour, self.dist_matrix) + 1e-6)
-                              for tour in population]
+            fitness_scores = [1.0 / (total_tour_distance(tour, self.dist_matrix) + 1e-6) for tour in population]
 
             # Track the best in this generation
             for i, tour in enumerate(population):
@@ -71,12 +71,12 @@ class TSPSolverGA:
         Order crossover (OX): preserves the relative ordering of cities.
         """
         size = len(p1)
-        c1, c2 = [-1]*size, [-1]*size
+        c1, c2 = [-1] * size, [-1] * size
 
         start, end = sorted([random.randrange(size) for _ in range(2)])
 
         # Copy the segment from parent1
-        for i in range(start, end+1):
+        for i in range(start, end + 1):
             c1[i] = p1[i]
         # Fill in the rest from parent2 in order
         pos = (end + 1) % size
@@ -87,7 +87,7 @@ class TSPSolverGA:
 
         # Repeat for child2
         start, end = sorted([random.randrange(size) for _ in range(2)])
-        for i in range(start, end+1):
+        for i in range(start, end + 1):
             c2[i] = p2[i]
         pos = (end + 1) % size
         for city in p1:

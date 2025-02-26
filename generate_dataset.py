@@ -1,6 +1,7 @@
 import csv
 import random
 
+
 def generate_cities_dataset(num_cities, filename="cities_10.csv", x_range=(0, 100), y_range=(0, 100)):
     """
     Generates a dataset of cities with random coordinates and saves it to a CSV file.
@@ -19,15 +20,17 @@ def generate_cities_dataset(num_cities, filename="cities_10.csv", x_range=(0, 10
         y = random.uniform(y_range[0], y_range[1])
         cities.append((city_id, x, y))
 
-    with open(filename, 'w', newline='') as csvfile:
+    with open(filename, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
         # No header row needed, as per problem description
         for city in cities:
             writer.writerow(city)
     print(f"Generated {num_cities} cities and saved to {filename}")
 
+
 def main():
     generate_cities_dataset(10)
 
-if __name__ == '__main__':
-   main()
+
+if __name__ == "__main__":
+    main()

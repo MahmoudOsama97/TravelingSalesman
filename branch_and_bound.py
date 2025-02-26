@@ -1,7 +1,6 @@
 import math
 import sys
 
-from utils import total_tour_distance
 
 class TSPSolverBnB:
     def __init__(self, dist_matrix):
@@ -16,18 +15,20 @@ class TSPSolverBnB:
         """
         # Start with a trivial node 0 as a root
         initial_path = [0]
-        visited = set([0])
+        visited = {0}  # Use set for efficient lookups
         current_cost = 0.0
 
         # Precompute a lower-bound from the initial reduced matrix
-        initial_lb = self._reduce_matrix([row[:] for row in self.dist_matrix])[0]  # copy then reduce
+        initial_lb, initial_reduced_matrix = self._reduce_matrix(
+            [row[:] for row in self.dist_matrix]
+        )  # copy then reduce
 
         self._branch_and_bound(
             path=initial_path,
             visited=visited,
             lower_bound=initial_lb,
             current_cost=current_cost,
-            reduced_matrix=[row[:] for row in self.dist_matrix]  # pass a copy
+            reduced_matrix=initial_reduced_matrix,  # Use the reduced matrix from initial reduction
         )
 
         return self.best_tour, self.best_cost
@@ -49,25 +50,25 @@ class TSPSolverBnB:
             return
 
         # Explore next cities
+        last_city_in_path = path[-1] if path else None  # Handle initial case
+
         for city in range(self.n):
             if city not in visited:
-                cost_to_city = self.dist_matrix[path[-1]][city]
+                cost_to_city = (
+                    self.dist_matrix[last_city_in_path][city] if last_city_in_path is not None else 0
+                )  # Cost from last city to current
                 new_cost = current_cost + cost_to_city
+
                 # Build a new reduced matrix for the next step
                 new_matrix = [row[:] for row in reduced_matrix]
-                # The lower-bound updated with the city transition
-                new_lb = lower_bound + cost_to_city
-                # Make row and column of visited city infinite to block reuse
-                for k in range(self.n):
-                    new_matrix[path[-1]][k] = math.inf
-                    new_matrix[k][city] = math.inf
-                # Also block returning to start if not finishing
-                if len(path) < self.n - 1:
-                    new_matrix[city][0] = math.inf
 
-                # Reduce the new matrix again
+                # Block returning to the immediately previous city to prevent cycles of length 2
+                if last_city_in_path is not None:
+                    new_matrix[city][last_city_in_path] = math.inf
+
+                # Reduce the new matrix and get reduction cost
                 red_cost, new_matrix = self._reduce_matrix(new_matrix)
-                new_lb += red_cost
+                new_lb = lower_bound + red_cost  # Update lower bound using reduction cost
 
                 # Recurse
                 visited.add(city)
@@ -84,19 +85,17 @@ class TSPSolverBnB:
         and returns the sum of reductions (lower bound contribution) plus the reduced matrix.
         """
         n = len(matrix)
-        row_reduction = [math.inf]*n
-        col_reduction = [math.inf]*n
+        row_reduction = [0] * n
+        col_reduction = [0] * n
 
         # Row reduction
         for i in range(n):
             row_min = min(matrix[i])
-            if row_min != math.inf and row_min > 0:
+            if row_min > 0 and row_min != math.inf:
                 for j in range(n):
                     if matrix[i][j] != math.inf:
                         matrix[i][j] -= row_min
                 row_reduction[i] = row_min
-            else:
-                row_reduction[i] = 0
 
         # Column reduction
         for j in range(n):
@@ -104,13 +103,11 @@ class TSPSolverBnB:
             for i in range(n):
                 if matrix[i][j] < col_min:
                     col_min = matrix[i][j]
-            if col_min != math.inf and col_min > 0:
+            if col_min > 0 and col_min != math.inf:
                 for i in range(n):
                     if matrix[i][j] != math.inf:
                         matrix[i][j] -= col_min
                 col_reduction[j] = col_min
-            else:
-                col_reduction[j] = 0
 
         total_reduction = sum(row_reduction) + sum(col_reduction)
         return total_reduction, matrix
