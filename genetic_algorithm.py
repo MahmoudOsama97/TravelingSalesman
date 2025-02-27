@@ -1,5 +1,5 @@
 import random
-from utils import total_tour_distance
+from TravelingSalesman.utils import total_tour_distance
 
 
 class TSPSolverGA:

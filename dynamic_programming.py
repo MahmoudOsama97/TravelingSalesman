@@ -25,36 +25,41 @@ class TSPSolverHeldKarp:
         if self.best_cost != math.inf:
             self.best_tour = self._reconstruct_tour(start_node, initial_set_mask)
         else:
-            self.best_tour = None
+            self.best_tour = list(range(self.n))  # Return default sequence if failed
 
         return self.best_tour, self.best_cost
+    
+    
 
     def _held_karp_recursive(self, last_node, visited_set_mask):
-        # print(f"HK_recursive: last_node={last_node}, visited_set_mask={visited_set_mask}")
+        """
+        Recursive function to solve TSP using Dynamic Programming (Held-Karp).
+        """
+        print(f"[DEBUG] Entering Held-Karp: last_node={last_node}, visited_set_mask={bin(visited_set_mask)}")
+
         if visited_set_mask == 0:
             base_cost = self.dist_matrix[last_node][0]
-            # print(f"HK_recursive BASE CASE: key={(last_node, visited_set_mask)}, cost={base_cost}") # Base case print
-            self.memo[(last_node, visited_set_mask)] = base_cost
+            print(f"[DEBUG] Base Case: Returning {base_cost}")
             return base_cost
 
         if (last_node, visited_set_mask) in self.memo:
             memo_val = self.memo[(last_node, visited_set_mask)]
-            #   print(f"HK_recursive MEMO HIT: key={(last_node, visited_set_mask)}, value={memo_val}") # Memo hit print
+            print(f"[DEBUG] Memo Hit: Returning {memo_val} for {last_node, bin(visited_set_mask)}")
             return memo_val
 
         min_cost = math.inf
         for next_node in range(self.n):
-            if (visited_set_mask >> next_node) & 1:
+            if (visited_set_mask >> next_node) & 1:  # If next_node is in visited_set
                 next_visited_set_mask = visited_set_mask & ~(1 << next_node)
-                cost = self.dist_matrix[last_node][next_node] + self._held_karp_recursive(
-                    next_node, next_visited_set_mask
-                )
+                cost = self.dist_matrix[last_node][next_node] + self._held_karp_recursive(next_node, next_visited_set_mask)
+
                 if cost < min_cost:
                     min_cost = cost
 
-        # print(f"HK_recursive MEMO STORE: key={(last_node, visited_set_mask)}, value={min_cost}") # Memo store print
         self.memo[(last_node, visited_set_mask)] = min_cost
+        print(f"[DEBUG] Storing in Memo: {last_node, bin(visited_set_mask)} -> {min_cost}")
         return min_cost
+
 
     def _reconstruct_tour(self, start_node, initial_set_mask):
         tour = [start_node]
