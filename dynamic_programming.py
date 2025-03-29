@@ -1,88 +1,79 @@
-import math
-
+import numpy as np
+import sys
 
 class TSPSolverHeldKarp:
-    def __init__(self, dist_matrix):
-        self.dist_matrix = dist_matrix
-        self.n = len(dist_matrix)
-        self.memo = {}  # Memoization table to store results of subproblems
-        self.best_tour = None
-        self.best_cost = math.inf
+    def __init__(self, cities):
+        self.cities = cities
+        self.n = len(cities)
+        self.dist_matrix = self._compute_distance_matrix()
+        self.memo = {}
+        self.best_cost = float('inf')
+        self.best_path = []
+
+    def _compute_distance_matrix(self):
+        matrix = np.zeros((self.n, self.n))
+        for i in range(self.n):
+            for j in range(self.n):
+                if i != j:
+                    matrix[i][j] = np.linalg.norm(self.cities[i] - self.cities[j])
+        return matrix
 
     def solve(self):
-        """
-        Public method to solve TSP using Held-Karp algorithm and return the best tour and cost.
-        """
+        # Start from node 0, with only node 0 visited
         start_node = 0
-        # Initialize the set of visited cities (excluding start node) as a bitmask
-        # All cities except the starting city (city 0) are in the initial set
-        initial_set_mask = (1 << self.n) - 1  # e.g., for n=4, mask = 1111 (binary) = 15 (decimal)
-        initial_set_mask &= ~(1 << start_node)  # Remove start node from the set
-
+        initial_set_mask = 1 << start_node
         self.best_cost = self._held_karp_recursive(start_node, initial_set_mask)
-
-        # Reconstruct the tour (optional, if you need the path)
-        if self.best_cost != math.inf:
-            self.best_tour = self._reconstruct_tour(start_node, initial_set_mask)
-        else:
-            self.best_tour = list(range(self.n))  # Return default sequence if failed
-
-        return self.best_tour, self.best_cost
-    
-    
+        path = self._reconstruct_path()
+        return path
 
     def _held_karp_recursive(self, last_node, visited_set_mask):
-        """
-        Recursive function to solve TSP using Dynamic Programming (Held-Karp).
-        """
-        print(f"[DEBUG] Entering Held-Karp: last_node={last_node}, visited_set_mask={bin(visited_set_mask)}")
+        if visited_set_mask == (1 << self.n) - 1:
+            # All cities visited, return to start
+            return self.dist_matrix[last_node][0]
 
-        if visited_set_mask == 0:
-            base_cost = self.dist_matrix[last_node][0]
-            print(f"[DEBUG] Base Case: Returning {base_cost}")
-            return base_cost
+        key = (last_node, visited_set_mask)
+        if key in self.memo:
+            return self.memo[key]
 
-        if (last_node, visited_set_mask) in self.memo:
-            memo_val = self.memo[(last_node, visited_set_mask)]
-            print(f"[DEBUG] Memo Hit: Returning {memo_val} for {last_node, bin(visited_set_mask)}")
-            return memo_val
-
-        min_cost = math.inf
+        min_cost = float('inf')
         for next_node in range(self.n):
-            if (visited_set_mask >> next_node) & 1:  # If next_node is in visited_set
-                next_visited_set_mask = visited_set_mask & ~(1 << next_node)
-                cost = self.dist_matrix[last_node][next_node] + self._held_karp_recursive(next_node, next_visited_set_mask)
-
+            if not visited_set_mask & (1 << next_node):
+                next_visited_set_mask = visited_set_mask | (1 << next_node)
+                cost = self.dist_matrix[last_node][next_node] + \
+                       self._held_karp_recursive(next_node, next_visited_set_mask)
                 if cost < min_cost:
                     min_cost = cost
 
-        self.memo[(last_node, visited_set_mask)] = min_cost
-        print(f"[DEBUG] Storing in Memo: {last_node, bin(visited_set_mask)} -> {min_cost}")
+        self.memo[key] = min_cost
         return min_cost
 
+    def _reconstruct_path(self):
+        """Optional: Reconstruct path from memo (not used in timing)."""
+        visited_set_mask = 1
+        current_node = 0
+        path = [current_node]
 
-    def _reconstruct_tour(self, start_node, initial_set_mask):
-        tour = [start_node]
-        current_node = start_node
-        current_set_mask = initial_set_mask
-
-        while current_set_mask > 0:
-            best_next_node = -1
-            min_cost_to_next_node = math.inf
+        while visited_set_mask != (1 << self.n) - 1:
+            best_next = None
+            min_cost = float('inf')
 
             for next_node in range(self.n):
-                if (current_set_mask >> next_node) & 1:
-                    next_set_mask = current_set_mask & ~(1 << next_node)
-                    # print(f"Reconstruct: current_node={current_node}, next_node={next_node}, next_set_mask={next_set_mask}") # Reconstruction print
-                    cost = (
-                        self.dist_matrix[current_node][next_node] + self.memo[(next_node, next_set_mask)]
-                    )  # KeyError here
-                    if cost < min_cost_to_next_node:
-                        min_cost_to_next_node = cost
-                        best_next_node = next_node
+                if visited_set_mask & (1 << next_node):
+                    continue
+                next_visited_set_mask = visited_set_mask | (1 << next_node)
+                key = (next_node, next_visited_set_mask)
+                if (current_node, visited_set_mask) in self.memo and key in self.memo:
+                    cost = self.dist_matrix[current_node][next_node] + self.memo[key]
+                    if cost < min_cost:
+                        min_cost = cost
+                        best_next = next_node
 
-            tour.append(best_next_node)
-            current_node = best_next_node
-            current_set_mask &= ~(1 << best_next_node)
+            if best_next is None:
+                break
 
-        return tour
+            path.append(best_next)
+            visited_set_mask |= (1 << best_next)
+            current_node = best_next
+
+        path.append(0)  # return to start
+        return path

@@ -1,6 +1,7 @@
 import math
 import csv
 import random
+import numpy as np
 import matplotlib.pyplot as plt
 
 def read_cities_from_csv(filepath):
@@ -40,33 +41,63 @@ def create_distance_matrix(cities):
                                                        (cities[j][1], cities[j][2]))
     return dist_matrix
 
-def total_tour_distance(tour, dist_matrix):
+def total_tour_distance(cities, tour):
     """
     Computes the total distance of a given tour (list of city indices),
     assuming a round trip (last city connects back to the first).
+    
+    Works with:
+    - cities as list of (city_id, x, y)
+    - cities as np.ndarray of shape (n, 2)
     """
+    # Ensure integer indices
+    tour = [int(i) for i in tour]
+    n = len(tour)
+
+    if isinstance(cities, np.ndarray):
+        # cities: shape (n, 2)
+        dist_matrix = np.zeros((len(cities), len(cities)))
+        for i in range(len(cities)):
+            for j in range(len(cities)):
+                dist_matrix[i][j] = np.linalg.norm(cities[i] - cities[j])
+    else:
+        # cities: list of (id, x, y)
+        dist_matrix = create_distance_matrix(cities)
+
     distance = 0.0
-    for i in range(len(tour)):
-        distance += dist_matrix[tour[i]][tour[(i+1) % len(tour)]]
+    for i in range(n):
+        distance += dist_matrix[tour[i]][tour[(i+1) % n]]
     return distance
 
 def plot_tour(cities, tour, title="TSP Tour"):
     """
     Plots the TSP tour using matplotlib. 'tour' is a list of city indices in the visiting order.
+    Supports both np.ndarray cities and list of (id, x, y).
     """
-    x_coords = [cities[i][1] for i in tour]
-    y_coords = [cities[i][2] for i in tour]
+    tour = [int(i) for i in tour]
+
+    if isinstance(cities[0], tuple):
+        x_coords = [cities[i][1] for i in tour]
+        y_coords = [cities[i][2] for i in tour]
+        labels = [cities[i][0] for i in tour]
+    else:
+        x_coords = [cities[i][0] for i in tour]
+        y_coords = [cities[i][1] for i in tour]
+        labels = [str(i) for i in tour]
 
     # Close the loop
-    x_coords.append(cities[tour[0]][1])
-    y_coords.append(cities[tour[0]][2])
+    x_coords.append(x_coords[0])
+    y_coords.append(y_coords[0])
 
-    plt.figure(figsize=(6,6))
+    plt.figure(figsize=(6, 6))
     plt.plot(x_coords, y_coords, marker='o', linestyle='-')
 
-    # Label each city
-    for idx in tour:
-        plt.text(cities[idx][1], cities[idx][2], cities[idx][0], fontsize=8, ha='right')
+    for x, y, label in zip(x_coords, y_coords, labels):
+        plt.text(x, y, label, fontsize=8, ha='right')
 
     plt.title(title)
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.grid(True)
+    plt.tight_layout()
     plt.show()

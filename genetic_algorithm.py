@@ -1,105 +1,77 @@
+import numpy as np
 import random
-from TravelingSalesman.utils import total_tour_distance
-
+from utils import total_tour_distance
 
 class TSPSolverGA:
-    def __init__(self, dist_matrix, population_size=50, generations=200, mutation_rate=0.02):
-        self.dist_matrix = dist_matrix
-        self.n = len(dist_matrix)
+    def __init__(self, cities, population_size=100, generations=200, mutation_rate=0.01):
+        """
+        cities: np.ndarray of shape (n, 2) with x, y coordinates.
+        """
+        self.cities = cities
+        self.n = len(cities)
         self.population_size = population_size
         self.generations = generations
         self.mutation_rate = mutation_rate
 
     def solve(self):
-        """
-        Run the genetic algorithm and return the best found tour and its cost.
-        """
-        # Generate initial population
-        population = [self._random_tour() for _ in range(self.population_size)]
-        best_tour = None
-        best_cost = float("inf")
+        # Step 1: Initialize population (each tour is a permutation of cities)
+        population = [np.random.permutation(self.n) for _ in range(self.population_size)]
 
-        for gen in range(self.generations):
-            # Evaluate fitness
-            fitness_scores = [1.0 / (total_tour_distance(tour, self.dist_matrix) + 1e-6) for tour in population]
+        for generation in range(self.generations):
+            # Step 2: Evaluate fitness
+            fitness_scores = []
+            for tour in population:
+                tour_list = tour.tolist() if isinstance(tour, np.ndarray) else list(tour)
+                distance = total_tour_distance(self.cities, tour_list)
+                fitness = 1.0 / (distance + 1e-6)
+                fitness_scores.append(fitness)
 
-            # Track the best in this generation
-            for i, tour in enumerate(population):
-                cost = total_tour_distance(tour, self.dist_matrix)
-                if cost < best_cost:
-                    best_cost = cost
-                    best_tour = tour[:]
+            # Step 3: Selection (roulette wheel)
+            total_fitness = sum(fitness_scores)
+            probabilities = [f / total_fitness for f in fitness_scores]
+            selected = random.choices(population, weights=probabilities, k=self.population_size)
 
-            # Selection & Reproduction
-            new_population = []
-            for _ in range(self.population_size // 2):
-                # Parent selection (tournament or roulette)
-                parent1 = self._select_tournament(population, fitness_scores)
-                parent2 = self._select_tournament(population, fitness_scores)
+            # Step 4: Crossover
+            next_gen = []
+            for _ in range(0, self.population_size, 2):
+                p1 = selected[random.randint(0, self.population_size - 1)]
+                p2 = selected[random.randint(0, self.population_size - 1)]
+                c1, c2 = self._crossover(p1, p2)
+                next_gen.extend([c1, c2])
 
-                # Crossover
-                child1, child2 = self._order_crossover(parent1, parent2)
-
-                # Mutation
+            # Step 5: Mutation
+            for i in range(len(next_gen)):
                 if random.random() < self.mutation_rate:
-                    self._swap_mutation(child1)
-                if random.random() < self.mutation_rate:
-                    self._swap_mutation(child2)
+                    next_gen[i] = self._mutate(next_gen[i])
 
-                new_population.append(child1)
-                new_population.append(child2)
+            population = next_gen
 
-            population = new_population
+        # Return the best tour
+        best = min(population, key=lambda t: total_tour_distance(self.cities, t))
+        return best
 
-        return best_tour, best_cost
-
-    def _random_tour(self):
-        tour = list(range(self.n))
-        random.shuffle(tour)
-        return tour
-
-    def _select_tournament(self, population, fitness_scores, k=3):
-        """
-        Tournament selection: pick k random individuals, return the best.
-        """
-        selected = random.sample(list(zip(population, fitness_scores)), k)
-        selected.sort(key=lambda x: x[1], reverse=True)
-        return selected[0][0]
-
-    def _order_crossover(self, p1, p2):
-        """
-        Order crossover (OX): preserves the relative ordering of cities.
-        """
+    def _crossover(self, p1, p2):
         size = len(p1)
-        c1, c2 = [-1] * size, [-1] * size
+        a, b = sorted(random.sample(range(size), 2))
+        child1 = [None] * size
+        child2 = [None] * size
 
-        start, end = sorted([random.randrange(size) for _ in range(2)])
+        child1[a:b] = p1[a:b]
+        child2[a:b] = p2[a:b]
 
-        # Copy the segment from parent1
-        for i in range(start, end + 1):
-            c1[i] = p1[i]
-        # Fill in the rest from parent2 in order
-        pos = (end + 1) % size
-        for city in p2:
-            if city not in c1:
-                c1[pos] = city
-                pos = (pos + 1) % size
+        def fill(child, parent):
+            pos = b
+            for city in parent:
+                if city not in child:
+                    if pos >= size:
+                        pos = 0
+                    child[pos] = city
+                    pos += 1
+            return child
 
-        # Repeat for child2
-        start, end = sorted([random.randrange(size) for _ in range(2)])
-        for i in range(start, end + 1):
-            c2[i] = p2[i]
-        pos = (end + 1) % size
-        for city in p1:
-            if city not in c2:
-                c2[pos] = city
-                pos = (pos + 1) % size
+        return fill(child1, p2), fill(child2, p1)
 
-        return c1, c2
-
-    def _swap_mutation(self, tour):
-        """
-        Swap two cities in the tour.
-        """
-        i, j = random.sample(range(len(tour)), 2)
-        tour[i], tour[j] = tour[j], tour[i]
+    def _mutate(self, tour):
+        a, b = random.sample(range(len(tour)), 2)
+        tour[a], tour[b] = tour[b], tour[a]
+        return tour
